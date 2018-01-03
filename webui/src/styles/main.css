@@ -1,0 +1,7 @@
+@tailwind utilities;
+
+body, html {
+  @apply .m-0 .flex .justify-center .align-middle .flex-col;
+  width: 100vw;
+  height: 100vh;
+}

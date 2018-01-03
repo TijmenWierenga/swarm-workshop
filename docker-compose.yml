@@ -1,0 +1,15 @@
+version: '3.3'
+
+services:
+  miner:
+    image: devcoin/miner:dev
+  api:
+    image: devcoin/api:dev
+    ports:
+      - "9000:9000"
+  redis:
+    image: redis:4
+  web:
+    image: devcoin/webui:dev
+    ports:
+      - "8080:8080"

@@ -1,0 +1,14 @@
+{
+    "name": "devcoin/api",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Tijmen Wierenga",
+            "email": "tijmen.wierenga@devmob.com"
+        }
+    ],
+    "require": {
+        "react/http": "^0.7.4",
+        "predis/predis": "^1.1"
+    }
+}

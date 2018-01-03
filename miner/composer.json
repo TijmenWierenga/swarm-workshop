@@ -1,0 +1,19 @@
+{
+    "name": "devcoin/miner",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Tijmen Wierenga",
+            "email": "tijmen.wierenga@devmob.com"
+        }
+    ],
+    "require": {
+        "react/event-loop": "0.4.*",
+        "predis/predis": "^1.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "DevCoin\\Miner\\": "src/"
+        }
+    }
+}
