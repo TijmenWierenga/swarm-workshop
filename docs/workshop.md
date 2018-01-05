@@ -116,7 +116,16 @@ Let's fail some more nodes and eventually lose the quorum. The moment we lose th
 our cluster doesn't work anymore. We should prevent this from happening
 at all times.
 
+# Docker registry
+For the next part of the workshop we'll be working with a real cluster.
+```bash
+for i in 1 2 3; do docker-machine create --driver virtualbox swarm-$i; done;
+```
+
+* Why you need a registry
+
 # Docker Stack
+Deploy a stack using a compose file
 
 # Setting up a reverse proxy
 * Use Configs
@@ -124,4 +133,5 @@ at all times.
 * Single point of entry to our applications
 
 # Secrets
-
+Put Redis behind a password we don't know!
+https://matthiasnoback.nl/2017/06/making-a-docker-image-ready-for-swarm-secrets/
