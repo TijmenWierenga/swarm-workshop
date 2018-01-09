@@ -232,3 +232,4 @@ https://matthiasnoback.nl/2017/06/making-a-docker-image-ready-for-swarm-secrets/
 ** Add environment variable for endpoint
 * Create Docker-compose machine locally
 * Build all images on compose machine
+* Set DNS records to allow live deployment
