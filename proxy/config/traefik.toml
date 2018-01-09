@@ -7,7 +7,7 @@ defaultEntryPoints = ["http"]
 watch = true
 exposedbydefault = false
 endpoint = "unix:///var/run/docker.sock"
-domain = "devcoin.com"
+domain = "dev-lab.io"
 
 [web]
 address = ":8080"
