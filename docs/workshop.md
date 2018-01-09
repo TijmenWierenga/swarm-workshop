@@ -12,6 +12,7 @@ The stack consists of:
 * Redis: To store the mined coins
 * WebUI: NodeJS application using VueJS and Tailwind
 * API: ReactPHP HTTP Server
+* Reverse proxy: Traefik
 
 # Introduction: Docker Compose versus Docker Swarm
 
