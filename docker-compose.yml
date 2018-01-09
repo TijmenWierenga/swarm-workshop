@@ -3,6 +3,8 @@ version: '3.3'
 services:
   miner:
     image: devcoin/miner:dev
+    networks:
+      - default
   api:
     image: devcoin/api:dev
     networks:
@@ -16,6 +18,8 @@ services:
       - traefik.enable=true
   redis:
     image: redis:4
+    networks:
+      - default
   web:
     image: devcoin/webui:dev
     networks:
@@ -29,6 +33,8 @@ services:
       - traefik.enable=true
   proxy:
     image: traefik:1.5
+    networks:
+      - proxy
     ports:
       - "80:80"
       - "8080:8080"
