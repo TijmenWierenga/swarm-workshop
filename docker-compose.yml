@@ -3,18 +3,22 @@ version: '3.3'
 services:
   miner:
     image: devcoin/miner:dev
+    build:
+      context: ./miner
     networks:
       - default
   api:
     image: devcoin/api:dev
+    build:
+      context: ./api
     networks:
       - default
       - proxy
     labels:
       - traefik.backend=api
       - traefik.port=9000
-      - traefik.frontend.rule=Host:api.devcoin.com
-      - traefik.docker.network=devcoin_proxy
+      - traefik.frontend.rule=Host:devcoin-api.dev-lab.io
+      - traefik.docker.network=devcoin_bridge_proxy
       - traefik.enable=true
   redis:
     image: redis:4
@@ -22,14 +26,16 @@ services:
       - default
   web:
     image: devcoin/webui:dev
+    build:
+      context: ./webui
     networks:
       - default
       - proxy
     labels:
       - traefik.backend=webui
       - traefik.port=8080
-      - traefik.frontend.rule=Host:devcoin.com
-      - traefik.docker.network=devcoin_proxy
+      - traefik.frontend.rule=Host:devcoin.dev-lab.io
+      - traefik.docker.network=devcoin_bridge_proxy
       - traefik.enable=true
   proxy:
     image: traefik:1.5
