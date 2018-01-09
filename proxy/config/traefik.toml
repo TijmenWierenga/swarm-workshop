@@ -1,0 +1,13 @@
+defaultEntryPoints = ["http"]
+[entryPoints]
+  [entryPoints.http]
+  address = ":80"
+
+[docker]
+watch = true
+exposedbydefault = false
+endpoint = "unix:///var/run/docker.sock"
+domain = "devcoin.com"
+
+[web]
+address = ":8080"
