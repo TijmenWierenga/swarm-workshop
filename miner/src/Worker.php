@@ -12,7 +12,17 @@ class Worker
     /**
      * Mining speed in seconds
      */
-    const MINING_SPEED = 1;
+    const MINING_SPEED_SLOW = 1;
+    const MINING_SPEED_NORMAL = 2;
+    const MINING_SPEED_FAST = 3;
+    const MINING_SPEED_SUPER_FAST = 10;
+
+    const MINING_SPEEDS = [
+        self::MINING_SPEED_SLOW,
+        self::MINING_SPEED_NORMAL,
+        self::MINING_SPEED_FAST,
+        self::MINING_SPEED_SUPER_FAST
+    ];
 
     /**
      * @var LoopInterface
@@ -22,17 +32,30 @@ class Worker
      * @var ClientInterface
      */
     private $client;
+    /**
+     * @var int
+     */
+    private $miningSpeed;
 
     /**
      * Worker constructor.
      * @param LoopInterface $loop
      * @param ClientInterface $client
+     * @param int $miningSpeed
      */
-    public function __construct(LoopInterface $loop, ClientInterface $client)
-    {
+    public function __construct(
+        LoopInterface $loop,
+        ClientInterface $client,
+        int $miningSpeed
+    ) {
+        if (! in_array($miningSpeed, self::MINING_SPEEDS)) {
+            throw new \RuntimeException("Invalid mining speed was applied");
+        }
+
         $this->loop = $loop;
         $this->configureMiner();
         $this->client = $client;
+        $this->miningSpeed = $miningSpeed;
     }
 
     public function run(): void
@@ -47,7 +70,7 @@ class Worker
 
     private function configureMiner(): void
     {
-        $this->loop->addPeriodicTimer(self::MINING_SPEED, function () {
+        $this->loop->addPeriodicTimer($this->miningSpeed, function () {
             $this->mine();
         });
     }
