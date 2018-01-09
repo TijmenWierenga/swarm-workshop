@@ -45,7 +45,7 @@ services:
 networks:
   default:
     external:
-      name: devcoin_private
+      name: devcoin_bridge_private
   proxy:
     external:
-      name: devcoin_proxy
+      name: devcoin_bridge_proxy
