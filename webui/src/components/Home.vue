@@ -41,7 +41,7 @@
     },
     methods: {
       getBlocks: function () {
-        this.$http.get('http://192.168.99.100:9000/').then(response => {
+        this.$http.get('http://devcoin-api.dev-lab.io/').then(response => {
           this.updateBlocks(response.data.data.blocks)
         }).bind(this)
       },
