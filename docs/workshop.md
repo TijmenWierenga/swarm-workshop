@@ -230,6 +230,12 @@ INSTANCE_ID=$(aws ec2 describe-instances \
 aws ec2 modify-instance-attribute --instance-id $INSTANCE_ID --groups sg-ffbb8384 sg-839266f8
 ```
 
+Let's also assign it an static IP so we can resolve it later:
+```bash
+aws ec2 associate-address --instance-id $INSTANCE_ID --allocation-id eipalloc-25e03618
+docker-machine regenerate-certs swarm-1
+```
+
 Now let's create the cluster:
 ```bash
 for i in 2 3; do
