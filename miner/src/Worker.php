@@ -65,7 +65,7 @@ class Worker
 
     private function mine(): void
     {
-        $this->client->incr("blocks");
+        $this->client->incrby("blocks", $this->miningSpeed);
     }
 
     private function configureMiner(): void
