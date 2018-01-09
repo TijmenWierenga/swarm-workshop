@@ -25,15 +25,13 @@ services:
         - traefik.docker.network=devcoin_overlay_proxy
         - traefik.enable=true
   redis:
-    image: localhost:5000/redis:4
+    image: redis:4
     networks:
       - default
     deploy:
       replicas: 1
   web:
     image: tijmenwierenga/devcoin-webui:0.1
-    build:
-      context: ./webui
     networks:
       - default
       - proxy
