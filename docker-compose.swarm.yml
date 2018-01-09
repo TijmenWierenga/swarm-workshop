@@ -1,0 +1,19 @@
+version: '3.3'
+
+services:
+  miner:
+    build:
+      context: ./miner
+    image: localhost:5000/devcoin/miner:dev
+  api:
+    build:
+      context: ./api
+    image: localhost:5000/devcoin/api:dev
+    ports:
+      - "9000:9000"
+  redis:
+    image: localhost:5000/redis:4
+  web:
+    image: tijmenwierenga/devcoin-webui:0.1
+    ports:
+      - "8080:8080"

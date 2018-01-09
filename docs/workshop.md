@@ -52,27 +52,46 @@ docker-compose down
 Starting a cluster is very easy. To illustrate this, I'm going to use [Play With Docker](http://www.play-with-docker.com).
 To start a cluster, we need to enable Swarm mode on the first node:
 ```bash
-docker swarm init --advertise-addr $(docker-machine ip $(docker-machine active))
+export IP=$(docker-machine ip $(docker-machine active))
+docker swarm init --advertise-addr $IP
 ```
 
 To let other nodes join our cluster, we need to obtain a token. Let's get the token first:
 ```bash
-docker swarm join-token manager
-docker swarm join-token worker
+export TOKEN_MANAGER=$(docker swarm join-token -q manager)
+export TOKEN_WORKER=$(docker swarm join-token -q worker)
 ```
 
-Now copy the result into the docker engine of the other nodes. 
-We'll create two additional managers and two workers.
+Now let's add two extra managers to the cluster:
+```bash
+for i in 2 3; do
+    eval $(docker-machine env swarm-$i)
+    docker swarm join --token $TOKEN_MANAGER $IP:2377;
+done;
+```
+
+Finally, let's add two workers:
+```bash
+for i in 4 5; do
+    eval $(docker-machine env swarm-$i)
+    docker swarm join --token $TOKEN_WORKER $IP:2377;
+done;
+```
 
 Let's check how our cluster looks by inspecting the nodes:
 ```bash
+eval $(docker-machine env swarm-1)
 docker node ls
 ```
 
 # How does Docker Swarm work?    
 * Swarm keeps internal state of the cluster through **raft consensus**
 * This means all nodes maintain information about the current state of the cluster.
-* As long as the quorum is maintained, any other manager can take over tasks from a failing node.
+* As long as the quorum (N/2)+1 is maintained, any other manager can take over tasks from a failing node.
+* That's why we always have a an odd number of managers.
+** 3 managers, 1 failing, CLUSTER OK
+** 4 managers, 2 failing, CLUSTER NOT OK
+** 5 managers, 2 failing, CLUSTER OK 
 
 Let's put that to practise.
 
@@ -118,10 +137,80 @@ at all times.
 
 # Docker registry
 For the next part of the workshop we'll be working with a real cluster.
+
+## Local machine
 ```bash
-for i in 1 2 3; do docker-machine create --driver virtualbox swarm-$i; done;
+for i in 1 2 3 4 5; do docker-machine create --driver virtualbox swarm-$i; done;
 ```
 
+## AWS
+Set the necessary environment variables. I stored the access keys in a file to prevent
+anyone from seeing the output. Docker Secrets work in a similar way, but we'll get to that.
+```bash
+export AWS_ACCESS_KEY_ID=$(cat ~/www/keys/aws_access_id)
+export AWS_SECRET_ACCESS_KEY=$(cat ~/www/keys/aws_access_secret)
+export AWS_DEFAULT_REGION=eu-west-1
+```
+
+Let's see where we can deploy out cluster.
+```bash
+aws ec2 describe-availability-zones --region $AWS_DEFAULT_REGION
+```
+
+Create the manager first:
+```bash
+docker-machine create \
+    --driver=amazonec2 --amazonec2-zone a \
+    --amazonec2-tags "type,manager" \
+    swarm-1
+```
+
+This created an AWS instance with Docker installed. It also created some security groups
+to allow communication with other AWS instances we'll start later.
+
+Before we can init a cluster we need to know the private IP-address of the instance.
+Unfortunately, `docker-machine ip swarm-1` returns the public IP-address of the instance.
+That's not what we want, so we'll grab the private IP-address using AWS console and JQ:
+```bash
+export MANAGER_IP=$(aws ec2 describe-instances \
+    --filter Name=tag:Name,Values=swarm-1 | jq -r ".Reservations[0].Instances[0].PrivateIpAddress")
+```
+
+Now we can init the cluster:
+```bash
+eval $(docker-machine env swarm-1)
+docker swarm init --advertise-addr $MANAGER_IP
+export MANAGER_TOKEN=$(docker swarm join-token -q manager)
+```
+
+Adding security group to allow HTTP-traffic which I created upfront:
+```bash
+INSTANCE_ID=$(aws ec2 describe-instances \
+        --filter Name=tag:Name,Values=swarm-1 | jq -r ".Reservations[0].Instances[0].InstanceId")
+aws ec2 modify-instance-attribute --instance-id $INSTANCE_ID --groups sg-ffbb8384 sg-839266f8
+```
+
+Now let's create the cluster:
+```bash
+for i in 2 3; do
+    docker-machine create \
+        --driver=amazonec2 --amazonec2-zone b \
+        --amazonec2-tags "type,manager" \
+        swarm-$i
+    eval $(docker-machine env swarm-$i)
+    IP=$(aws ec2 describe-instances \
+        --filter Name=tag:Name,Values=swarm-$i | jq -r ".Reservations[0].Instances[0].PrivateIpAddress")
+    docker swarm join \
+        --token $MANAGER_TOKEN \
+        --advertise-addr $IP \
+        $MANAGER_IP:2377
+    INSTANCE_ID=$(aws ec2 describe-instances \
+        --filter Name=tag:Name,Values=swarm-$i | jq -r ".Reservations[0].Instances[0].InstanceId")
+    aws ec2 modify-instance-attribute --instance-id $INSTANCE_ID --groups sg-ffbb8384 sg-839266f8
+done
+```
+
+# Docker Registry
 * Why you need a registry
 
 # Docker Stack
@@ -135,3 +224,11 @@ Deploy a stack using a compose file
 # Secrets
 Put Redis behind a password we don't know!
 https://matthiasnoback.nl/2017/06/making-a-docker-image-ready-for-swarm-secrets/
+
+# TODO
+* Push WebUI to Hub
+* Add reverse proxy
+* Change API endpoint for fetching coin count
+** Add environment variable for endpoint
+* Create Docker-compose machine locally
+* Build all images on compose machine
