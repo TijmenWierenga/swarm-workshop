@@ -1,0 +1,76 @@
+version: '3.3'
+
+services:
+  miner:
+    image: localhost:5000/devcoin/miner:dev
+    build:
+      context: ./miner
+    networks:
+      - default
+    deploy:
+      replicas: 3
+    configs:
+      - source: miner
+        target: /var/www/html/config/config.php
+  api:
+    image: localhost:5000/devcoin/api:dev
+    build:
+      context: ./api
+    networks:
+      - default
+      - proxy
+    deploy:
+      replicas: 1
+      labels:
+        - traefik.backend=api
+        - traefik.port=9000
+        - traefik.frontend.rule=Host:devcoin-api.dev-lab.io
+        - traefik.docker.network=devcoin_overlay_proxy
+        - traefik.enable=true
+  redis:
+    image: redis:4
+    networks:
+      - default
+    deploy:
+      replicas: 1
+  web:
+    image: tijmenwierenga/devcoin-webui:0.1
+    networks:
+      - default
+      - proxy
+    deploy:
+      replicas: 1
+      labels:
+        - traefik.backend=webui
+        - traefik.port=8080
+        - traefik.frontend.rule=Host:devcoin.dev-lab.io
+        - traefik.docker.network=devcoin_overlay_proxy
+        - traefik.enable=true
+  proxy:
+    image: traefik:1.5
+    networks:
+      - proxy
+    ports:
+      - "8080:8080"
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      replicas: 1
+    configs:
+      - source: traefik
+        target: /etc/traefik/traefik.toml
+
+networks:
+  default:
+    external:
+      name: devcoin_overlay_private
+  proxy:
+    external:
+      name: devcoin_overlay_proxy
+
+configs:
+  miner:
+    external: true
+  traefik:
+    external: true
