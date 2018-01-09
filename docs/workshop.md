@@ -1,3 +1,7 @@
+# Prerequisites
+* Build images with `docker-compose build` with predefined machine
+* Add `devcoin-api.dev-lab.io` and `devcoin.dev-lab.io` to `HOSTS` file
+
 # Welcome
 Today I'll explain the basics of Docker Swarm to you guys.
 We'll start by comparing Docker Compose and Docker Swarm and 
@@ -21,6 +25,42 @@ The stack consists of:
 
 ```bash
 docker-compose up -d
+```
+
+As you can see this won't work, because of the networks. Since we've specifically
+described our networks, we need to create them first.
+
+First, let's create our `default` network. With Docker Compose, we utilize the
+`bridge` driver. It can only access containers on the same node, which works perfectly
+for the Compose stack:
+```bash
+docker network create --driver bridge devcoin_bridge_private
+```
+As you can see, all services except the `proxy` are connected to the default network.
+This is because we want all services to freely communicate with each other in this private
+network. It's called private since we don't expose any ports to the outside world.
+
+Now let's create the proxy network, which is used to communicate with the outside world:
+```bash
+docker network create --driver bridge devcoin_bridge_proxy
+``` 
+
+Isolated network:
+
+![Private network](/images/private_network.png)
+
+Exposed network (proxy):
+
+![Exposed network](/images/exposed_network.png)
+
+Inspect the private network:
+```bash
+docker network inspect devcoin_bridge_private
+```
+
+Inspect the proxy network:
+```bash
+docker network inspect devcoin_bridge_proxy
 ```
 
 So, now let's scale this application:
@@ -90,9 +130,11 @@ docker node ls
 * This means all nodes maintain information about the current state of the cluster.
 * As long as the quorum (N/2)+1 is maintained, any other manager can take over tasks from a failing node.
 * That's why we always have a an odd number of managers.
-** 3 managers, 1 failing, CLUSTER OK
-** 4 managers, 2 failing, CLUSTER NOT OK
-** 5 managers, 2 failing, CLUSTER OK 
+    * 3 managers, 1 failing, CLUSTER OK
+    * 4 managers, 2 failing, CLUSTER NOT OK
+    * 5 managers, 2 failing, CLUSTER OK
+
+![Exposed network](/images/raft_consensus.jpg)
 
 Let's put that to practise.
 
@@ -138,6 +180,20 @@ at all times.
 
 # Docker registry
 For the next part of the workshop we'll be working with a real cluster.
+Docker Registry has three possibilities of distributing images:
+* Docker Hub
+* Docker Registry
+* Docker Trusted Registry
+
+To create our local registry within our cluster we'll start it as a service:
+```bash
+docker service create --name registry --publish 5000:5000 registry
+```
+
+We can confirm that the service is now running:
+```bash
+docker service ls
+```
 
 ## Local machine
 ```bash
