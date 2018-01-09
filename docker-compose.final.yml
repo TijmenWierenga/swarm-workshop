@@ -9,6 +9,9 @@ services:
       - default
     deploy:
       replicas: 3
+    configs:
+      - source: miner
+        target: /var/www/html/config/config.php
   api:
     image: localhost:5000/devcoin/api:dev
     build:
@@ -52,9 +55,11 @@ services:
       - "80:80"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./proxy/config/traefik-swarm.toml:/etc/traefik/traefik.toml
     deploy:
       replicas: 1
+    configs:
+      - source: traefik
+        target: /etc/traefik/traefik.toml
 
 networks:
   default:
@@ -63,3 +68,9 @@ networks:
   proxy:
     external:
       name: devcoin_overlay_proxy
+
+configs:
+  miner:
+    external: true
+  traefik:
+    external: true

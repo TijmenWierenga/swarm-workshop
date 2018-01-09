@@ -53,9 +53,9 @@ class Worker
         }
 
         $this->loop = $loop;
-        $this->configureMiner();
         $this->client = $client;
         $this->miningSpeed = $miningSpeed;
+        $this->configureMiner();
     }
 
     public function run(): void
@@ -65,7 +65,7 @@ class Worker
 
     private function mine(): void
     {
-        $this->client->incr("blocks");
+        $this->client->incrby("blocks", $this->miningSpeed);
     }
 
     private function configureMiner(): void

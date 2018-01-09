@@ -16,4 +16,6 @@ COPY --chown=node .babelrc .editorconfig .eslintignore .eslintrc.js .postcssrc.j
 WORKDIR /home/node/app
 RUN npm install
 
+EXPOSE 8080
+
 CMD ["npm", "run", "dev"]

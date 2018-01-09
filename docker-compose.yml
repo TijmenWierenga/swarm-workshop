@@ -3,13 +3,55 @@ version: '3.3'
 services:
   miner:
     image: devcoin/miner:dev
+    build:
+      context: ./miner
+    networks:
+      - default
   api:
     image: devcoin/api:dev
-    ports:
-      - "9000:9000"
+    build:
+      context: ./api
+    networks:
+      - default
+      - proxy
+    labels:
+      - traefik.backend=api
+      - traefik.port=9000
+      - traefik.frontend.rule=Host:devcoin-api.dev-lab.io
+      - traefik.docker.network=devcoin_bridge_proxy
+      - traefik.enable=true
   redis:
     image: redis:4
+    networks:
+      - default
   web:
     image: devcoin/webui:dev
+    build:
+      context: ./webui
+    networks:
+      - default
+      - proxy
+    labels:
+      - traefik.backend=webui
+      - traefik.port=8080
+      - traefik.frontend.rule=Host:devcoin.dev-lab.io
+      - traefik.docker.network=devcoin_bridge_proxy
+      - traefik.enable=true
+  proxy:
+    image: traefik:1.5
+    networks:
+      - proxy
     ports:
+      - "80:80"
       - "8080:8080"
+    volumes:
+      - ./proxy/config/traefik.toml:/etc/traefik/traefik.toml
+      - /var/run/docker.sock:/var/run/docker.sock
+
+networks:
+  default:
+    external:
+      name: devcoin_bridge_private
+  proxy:
+    external:
+      name: devcoin_bridge_proxy

@@ -1,3 +1,7 @@
+# Prerequisites
+* Build images with `docker-compose build` with predefined machine
+* Add `devcoin-api.dev-lab.io` and `devcoin.dev-lab.io` to `HOSTS` file
+
 # Welcome
 Today I'll explain the basics of Docker Swarm to you guys.
 We'll start by comparing Docker Compose and Docker Swarm and 
@@ -12,6 +16,7 @@ The stack consists of:
 * Redis: To store the mined coins
 * WebUI: NodeJS application using VueJS and Tailwind
 * API: ReactPHP HTTP Server
+* Reverse proxy: Traefik
 
 # Introduction: Docker Compose versus Docker Swarm
 
@@ -20,6 +25,42 @@ The stack consists of:
 
 ```bash
 docker-compose up -d
+```
+
+As you can see this won't work, because of the networks. Since we've specifically
+described our networks, we need to create them first.
+
+First, let's create our `default` network. With Docker Compose, we utilize the
+`bridge` driver. It can only access containers on the same node, which works perfectly
+for the Compose stack:
+```bash
+docker network create --driver bridge devcoin_bridge_private
+```
+As you can see, all services except the `proxy` are connected to the default network.
+This is because we want all services to freely communicate with each other in this private
+network. It's called private since we don't expose any ports to the outside world.
+
+Now let's create the proxy network, which is used to communicate with the outside world:
+```bash
+docker network create --driver bridge devcoin_bridge_proxy
+``` 
+
+Isolated network:
+
+![Private network](/images/private_network.png)
+
+Exposed network (proxy):
+
+![Exposed network](/images/exposed_network.png)
+
+Inspect the private network:
+```bash
+docker network inspect devcoin_bridge_private
+```
+
+Inspect the proxy network:
+```bash
+docker network inspect devcoin_bridge_proxy
 ```
 
 So, now let's scale this application:
@@ -89,9 +130,11 @@ docker node ls
 * This means all nodes maintain information about the current state of the cluster.
 * As long as the quorum (N/2)+1 is maintained, any other manager can take over tasks from a failing node.
 * That's why we always have a an odd number of managers.
-** 3 managers, 1 failing, CLUSTER OK
-** 4 managers, 2 failing, CLUSTER NOT OK
-** 5 managers, 2 failing, CLUSTER OK 
+    * 3 managers, 1 failing, CLUSTER OK
+    * 4 managers, 2 failing, CLUSTER NOT OK
+    * 5 managers, 2 failing, CLUSTER OK
+
+![Exposed network](/images/raft_consensus.jpg)
 
 Let's put that to practise.
 
@@ -134,9 +177,6 @@ out of the box in Docker Swarm.
 Let's fail some more nodes and eventually lose the quorum. The moment we lose the quorum
 our cluster doesn't work anymore. We should prevent this from happening
 at all times.
-
-# Docker registry
-For the next part of the workshop we'll be working with a real cluster.
 
 ## Local machine
 ```bash
@@ -210,25 +250,135 @@ for i in 2 3; do
 done
 ```
 
-# Docker Registry
-* Why you need a registry
+# Docker registry
+For the next part of the workshop we'll be working with a real cluster.
+Docker Registry has three possibilities of distributing images:
+* Docker Hub
+* Docker Registry
+* Docker Trusted Registry
+
+We'll cover the open source options shortly. Main benefits are:
+* Tightly control where your images are being stored
+* Fully own your images distribution pipeline
+* Integrate image storage and distribution tightly into your in-house development workflow
+
+To create our local registry within our cluster we'll start it as a service:
+```bash
+docker service create --name registry --publish 5000:5000 registry
+```
+
+We can confirm that the service is now running:
+```bash
+docker service ls
+```
+
+Let's build the images we want to push to our registry:
+```bash
+docker-compose -f docker-compose.swarm.yml build api miner
+```
+
+And finally push them into our registry:
+```bash
+docker-compose -f docker-compose.swarm.yml push api miner
+```
+
+The API and Miner image will now be pulled from our own registry,
+the others will be pulled from the Docker Hub.
 
 # Docker Stack
-Deploy a stack using a compose file
+With Docker Stack we can deploy all our services at once like we're
+used to in Docker Compose:
+```bash
+docker stack deploy -c docker-compose.swarm.yml devcoin
+```
 
-# Setting up a reverse proxy
-* Use Configs
-* Explain we don't need to expose ports to the world.
-* Single point of entry to our applications
+Before we can do this we need to create the specific Swarm *overlay* networks:
+```bash
+docker network create --driver overlay devcoin_overlay_private
+docker network create --driver overlay devcoin_overlay_proxy
+```
+
+These networks work in a different way:
+![Overlay network](/images/overlay_network.png)
+
+Now we can start the stack:
+```bash
+docker stack deploy -c docker-compose.swarm.yml devcoin
+```
+
+An overlay network can access and resolve containers across nodes!
+```bash
+docker network inspect devcoin_overlay_private 
+```
+
+Swarm performs load balancing itself and assigns each container with a private IP-address.
+They are resolvable by the network alias. For example, the miner service will have the
+`miner` alias:
+```bash
+docker service inspect devcoin_miner
+```
+
+# Configs
+It doesn't make sense to store config values in source control since they might vary per install.
+In the past we added the config to an extended base image to achieve this.
+Mind that we cannot use volumes here, since the config file might not be present on the host. 
+To solve this, we can manage our configurations within Docker Swarm.
+
+One of the examples is our Miner. We define it's mining speed by a config file:
+```bash
+docker config create miner ./miner/config.php
+```
+
+Same goes for our reverse proxy:
+```bash
+docker config create traefik ./proxy/config/traefik-swarm.toml
+```
+
+Now let's deploy our stack with the new config:
+```bash
+docker stack deploy -c docker-compose.final.yml devcoin
+```
+
+Rotating the config:
+```bash
+docker config create miner_v2 ./miner/config.php
+docker service update --config-rm miner --config-add source=miner_v2,target=/var/www/html/config/config.php devcoin_miner
+```
 
 # Secrets
+A lot of times secrets are added as environment variables. Docker utilizes secrets by mounting them at runtime.
+
+Let's create a secret:
+```bash
+echo "this-is-a-password" | docker secret create my-password -
+```
+
+Now let's create a service that uses that password:
+```bash
+docker service create --name sleeper --secret my-password alpine:latest sleep 100000
+```
+
+Enter the container and show the password.
+
 Put Redis behind a password we don't know!
+```bash
+openssl rand -base64 20 | docker secret create redis -
+```
+
+Now:
+* Add the secret as an external secret in the compose file
+* Mount the secret in the Redis service
+* Mount the secret in the Miner service (it uses Redis)
+* Change the default command to: `["sh", "-c", "redis-server --requirepass \"$$(cat /run/secrets/redis)\""]`
+* Redeploy the stack
+
 https://matthiasnoback.nl/2017/06/making-a-docker-image-ready-for-swarm-secrets/
 
 # TODO
-* Push WebUI to Hub
-* Add reverse proxy
-* Change API endpoint for fetching coin count
-** Add environment variable for endpoint
-* Create Docker-compose machine locally
-* Build all images on compose machine
+* Set DNS records to allow live deployment
+
+# What we didn't cover
+* Rolling updates
+* Self-healing clusters with rollback
+* Logging
+* Monitoring
