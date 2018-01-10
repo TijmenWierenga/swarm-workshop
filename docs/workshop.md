@@ -18,6 +18,8 @@ The stack consists of:
 * API: ReactPHP HTTP Server
 * Reverse proxy: Traefik
 
+![Stack setup](/images/DevCoin.png)
+
 # Introduction: Docker Compose versus Docker Swarm
 
 * docker-compose works only on a **single** node.
