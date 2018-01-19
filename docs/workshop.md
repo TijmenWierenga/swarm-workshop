@@ -215,7 +215,8 @@ Unfortunately, `docker-machine ip swarm-1` returns the public IP-address of the 
 That's not what we want, so we'll grab the private IP-address using AWS console and JQ:
 ```bash
 export MANAGER_IP=$(aws ec2 describe-instances \
-    --filter Name=tag:Name,Values=swarm-1 | jq -r ".Reservations[0].Instances[0].PrivateIpAddress")
+    --filter Name=tag:Name,Values=swarm-1 Name=instance-state-name,Values=running | \
+    jq -r ".Reservations[0].Instances[0].PrivateIpAddress")
 ```
 
 Now we can init the cluster:
@@ -228,13 +229,14 @@ export MANAGER_TOKEN=$(docker swarm join-token -q manager)
 Adding security group to allow HTTP-traffic which I created upfront:
 ```bash
 INSTANCE_ID=$(aws ec2 describe-instances \
-        --filter Name=tag:Name,Values=swarm-1 | jq -r ".Reservations[0].Instances[0].InstanceId")
-aws ec2 modify-instance-attribute --instance-id $INSTANCE_ID --groups sg-ffbb8384 sg-839266f8
+    --filter Name=tag:Name,Values=swarm-1 Name=instance-state-name,Values=running | \
+    jq -r ".Reservations[0].Instances[0].InstanceId")
+aws ec2 modify-instance-attribute --instance-id $INSTANCE_ID --groups sg-aab9b3d1 sg-839266f8
 ```
 
 Let's also assign it an static IP so we can resolve it later:
 ```bash
-aws ec2 associate-address --instance-id $INSTANCE_ID --allocation-id eipalloc-25e03618
+aws ec2 associate-address --instance-id $INSTANCE_ID --allocation-id eipalloc-e436e5d9
 docker-machine regenerate-certs swarm-1
 ```
 
@@ -247,14 +249,16 @@ for i in 2 3; do
         swarm-$i
     eval $(docker-machine env swarm-$i)
     IP=$(aws ec2 describe-instances \
-        --filter Name=tag:Name,Values=swarm-$i | jq -r ".Reservations[0].Instances[0].PrivateIpAddress")
+        --filter Name=tag:Name,Values=swarm-$i Name=instance-state-name,Values=running \
+        | jq -r ".Reservations[0].Instances[0].PrivateIpAddress")
     docker swarm join \
         --token $MANAGER_TOKEN \
         --advertise-addr $IP \
         $MANAGER_IP:2377
     INSTANCE_ID=$(aws ec2 describe-instances \
-        --filter Name=tag:Name,Values=swarm-$i | jq -r ".Reservations[0].Instances[0].InstanceId")
-    aws ec2 modify-instance-attribute --instance-id $INSTANCE_ID --groups sg-ffbb8384 sg-839266f8
+        --filter Name=tag:Name,Values=swarm-$i Name=instance-state-name,Values=running \
+        | jq -r ".Reservations[0].Instances[0].InstanceId")
+    aws ec2 modify-instance-attribute --instance-id $INSTANCE_ID --groups sg-aab9b3d1 sg-839266f8
 done
 ```
 
